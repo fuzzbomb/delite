@@ -89,7 +89,7 @@ define([
 			return item;
 		},
 
-		createdCallback: function () {
+		render: dcl.before(function () {
 			// If the control seems to contain JSON, then parse it as our data source.
 			if (!this.firstElementChild && this.textContent.trim()) {
 				var data = JSON.parse("[" + this.textContent + "]");
@@ -104,7 +104,7 @@ define([
 				}
 				this.textContent = "";
 			}
-		},
+		}),
 
 		/**
 		 * This method is called once the query has been executed to initialize the renderItems array

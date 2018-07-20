@@ -44,8 +44,6 @@ define([
 		 * Unique id for this widget, separate from id attribute (which may or may not be set).
 		 * Useful when widget creates subnodes that need unique id's.
 		 * @member {number}
-		 * @constant
-		 * @readonly
 		 * @protected
 		 */
 		widgetId: 0,
@@ -72,18 +70,30 @@ define([
 
 		//////////// INITIALIZATION METHODS ///////////////////////////////////////
 
-		createdCallback: function () {
+		constructor: function () {
 			this.widgetId = "d-" + (++cnt);
 		},
 
-		// deliver() is called on widget creation, either from CustomElement#attachedCallback() (for the declarative
-		// case) or the widget constructor (for the programmatic case).  At that point, Invalidating's observers haven't
-		// been set up yet, so Stateful#deliver() won't call computeProperties() or refreshRendering().  But instead,
-		// Widget calls Invalidating#initializeInvalidating(), which calls computeProperties(this, true) and
-		// refreshRendering(this, true).
+		// Setup deliver() as a way to force the widget to render before it's attached to the document.
 		deliver: dcl.after(function () {
 			this.initializeInvalidating();
 		}),
+
+		// Override decor/Sateful#processConstructorParameters() for special handle of style etc.
+		processConstructorParameters: function (args) {
+			if (args.length) {
+				var params = args[0];
+				for (var name in params || {}) {
+					if (name === "style") {
+						this.style.cssText = params.style;
+					} else if ((name === "class" || name === "className") && this.setClassComponent) {
+						this.setClassComponent("user", params[name]);
+					} else {
+						this[name] = params[name];
+					}
+				}
+			}
+		},
 
 		computeProperties: function (props) {
 			if ("dir" in props) {
@@ -136,11 +146,8 @@ define([
 			}
 		},
 
-		attachedCallback: dcl.after(function () {
-			// Call attachedCallback() on any widgets in the template
-			if (this._templateHandle && !has("document-register-element")) {
-				this._templateHandle.attach();
-			}
+		connectedCallback: dcl.after(function () {
+			this.initializeInvalidating();
 		}),
 
 		/**
@@ -176,7 +183,7 @@ define([
 
 			// Render the widget.
 			if (this.template) {
-				this._templateHandle = this.template(this.ownerDocument, register);
+				this._templateHandle = this.template(this.ownerDocument);
 				if (this.attached && !has("document-register-element")) {
 					this._templateHandle.attach();
 				}
@@ -247,8 +254,8 @@ define([
 
 		//////////// DESTROY FUNCTIONS ////////////////////////////////
 
-		detachedCallback: function () {
-			// Call detachedCallback() on any widgets in the template
+		disconnectedCallback: function () {
+			// Call disconnectedCallback() on any widgets in the template
 			if (this._templateHandle && !has("document-register-element")) {
 				this._templateHandle.detach();
 			}
@@ -305,9 +312,6 @@ define([
 		 * new ContentPane({ href:"foo.html", title:"Wow!" }).placeAt(tc)
 		 */
 		placeAt: function (reference, position) {
-			// If there are any pending changes, deliver them now.
-			this.deliver();
-
 			if (typeof reference === "string") {
 				reference = this.ownerDocument.getElementById(reference);
 			}
@@ -333,8 +337,8 @@ define([
 			}
 
 			if (!this.attached) {
-				// run attach code for this widget and any descendant custom elements too
-				this.attachedCallback(true);
+				// Synchronously run attach code for this widget and any descendant custom elements too.
+				this.connectedCallback();
 			}
 
 			return this;
