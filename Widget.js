@@ -305,6 +305,9 @@ define([
 		 * new ContentPane({ href:"foo.html", title:"Wow!" }).placeAt(tc)
 		 */
 		placeAt: function (reference, position) {
+			// If there are any pending changes, deliver them now.
+			this.deliver();
+
 			if (typeof reference === "string") {
 				reference = this.ownerDocument.getElementById(reference);
 			}
